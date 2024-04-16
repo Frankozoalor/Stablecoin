@@ -153,7 +153,7 @@ contract DSCEngineTest is Test {
         vm.startPrank(USER);
         ERC20Mock(weth).approve(address(engine), AMOUNT_COLLATERAL);
         engine.depositCollateralAndMintDsc(weth, AMOUNT_COLLATERAL, DSC_AMOUNT_TO_MINT);
-        (uint256 totalDscMinted, uint256 collateralValueInUsd) = engine.getAccountInformation(USER);
+        (uint256 totalDscMinted,) = engine.getAccountInformation(USER);
         assertEq(totalDscMinted, DSC_AMOUNT_TO_MINT);
         vm.stopPrank();
     }
@@ -163,7 +163,7 @@ contract DSCEngineTest is Test {
         engine.mintDSC(DSC_AMOUNT_TO_MINT);
         dsc.approve(address(engine), DSC_AMOUNT_TO_MINT);
         uint256 amountMinted = engine.s_DSCMinted(USER);
-        engine.RedeemCollateralForDsc(weth, AMOUNT_COLLATERAL, DSC_AMOUNT_TO_MINT);
+        engine.RedeemCollateralForDsc(weth, AMOUNT_COLLATERAL, amountMinted);
         uint256 collateralRedeemed = ERC20Mock(weth).balanceOf(USER);
         assertEq(AMOUNT_COLLATERAL, collateralRedeemed);
         vm.stopPrank();
@@ -172,7 +172,7 @@ contract DSCEngineTest is Test {
     function testCanDepositCollateralAndGetAccountInfo() public depositedCollateral {
         vm.startPrank(USER);
         engine.mintDSC(DSC_AMOUNT_TO_MINT);
-        (uint256 totalDscMinted, uint256 collateralValueInUsd) = engine.getAccountInformation(USER);
+        (, uint256 collateralValueInUsd) = engine.getAccountInformation(USER);
         uint256 amountMinted = engine.s_DSCMinted(USER);
         uint256 expectedDepositAmount = engine.getTokenAmountFromUsd(weth, collateralValueInUsd);
         assertEq(amountMinted, DSC_AMOUNT_TO_MINT);
@@ -218,6 +218,7 @@ contract DSCEngineTest is Test {
         uint256 amountMinted = engine.s_DSCMinted(LIQUIDATOR);
         uint256 totalCollateralValueInUSD = engine.getAccountCollateralValueInUsd(LIQUIDATOR);
         uint256 healthFactor = engine.calculateHealthFactor(amountMinted, totalCollateralValueInUSD);
+        assert(healthFactor > MIN_HEALTH_FACTOR);
 
         dsc.approve(address(engine), DSC_AMOUNT_TO_MINT);
         engine.liquidate(weth, USER, DSC_AMOUNT_TO_MINT);
