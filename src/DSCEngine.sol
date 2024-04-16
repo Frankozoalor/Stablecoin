@@ -24,7 +24,7 @@ import {OracleLib} from "./Lib/OracleLib.sol";
  * At no point, should the value of all collateral <= the $ backed value of all the DSC
  *
  * @notice This contract is the core of the DSC system. It handles all the logic for minting
- * and redeemung DSC, as well as depositing and withdrawing collateral.
+ * and redeeming DSC, as well as depositing and withdrawing collateral.
  * @notice This contract is Very loosely based on the MarkerDAO DSS (DAI) system.
  */
 contract DSCEngine is ReentrancyGuard {
@@ -48,8 +48,8 @@ contract DSCEngine is ReentrancyGuard {
     // State Variables ///
     /////////////////////
 
-    uint256 private constant ADDITIONAL_FEED_PERCISION = 1e10;
     uint256 private constant PERCISION = 1e18;
+    uint256 private constant ADDITIONAL_FEED_PERCISION = 1e10;
     uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant LIQUIDATION_BONUS = 10;
     uint256 private constant LIQUIDATION_PERCISION = 100;
@@ -132,13 +132,13 @@ contract DSCEngine is ReentrancyGuard {
         }
         _revertIfhealthFactorisBroken(msg.sender);
     }
-    /*
-    * @param tokenCollateralAddress The address of the token to deposit as collateral
-    * @param amountCollateral The amount of collateral to deposit
-    * @param amountDscToMint The amount of decentralized stablecoin to mint
-    * @notice This function will deposit your collateral and mint DSC in one transaction
-    */
 
+    /**
+     * @param collateralTokenAddress The address of the token to deposit as collateral
+     * @param amountCollateral The amount of collateral to deposit
+     * @param amountDscToMint The amount of decentralized stablecoin to mint
+     * @notice This function will deposit your collateral and mint DSC in one transaction
+     */
     function depositCollateralAndMintDsc(
         address collateralTokenAddress,
         uint256 amountCollateral,
@@ -147,11 +147,11 @@ contract DSCEngine is ReentrancyGuard {
         depositCollateral(collateralTokenAddress, amountCollateral);
         mintDSC(amountDscToMint);
     }
-    /*
-    * @param tokenCollateralAddress The address of the token to redeem 
-    * @param amountCollateral The amount of collateral to redeem
-    * @notice Users can use this function to redeem their collateral.
-    */
+    /**
+     * @param tokenCollateralAddress The address of the token to redeem
+     * @param amountCollateral The amount of collateral to redeem
+     * @notice Users can use this function to redeem their collateral.
+     */
 
     function redeemCollateral(address tokenCollateralAddress, uint256 amountCollateral)
         public
@@ -161,21 +161,20 @@ contract DSCEngine is ReentrancyGuard {
         _redeemCollateral(msg.sender, msg.sender, tokenCollateralAddress, amountCollateral);
     }
 
-    /*
-    
-    * @param amount The amount of DSC to burn
-    * @notice This function will burn your DSC
-    */
+    /**
+     * @param amountDscToBurn The amount of DSC to burn
+     * @notice This function will burn your DSC
+     */
     function burnDsc(uint256 amountDscToBurn) public moreThanZero(amountDscToBurn) {
         _burnDsc(msg.sender, msg.sender, amountDscToBurn);
     }
 
-    /*
-    * @param tokenCollateralAddress The address of the token to redeem 
-    * @param amountCollateral The amount of collateral to redeem
-    * @param amountDscToBurn The amount of DSC to burn
-    * @notice This function will burn your DSC and redeem Collateral in one transaction
-    */
+    /**
+     * @param tokenCollateralAddress The address of the token to redeem
+     * @param amountCollateral The amount of collateral to redeem
+     * @param amountDscToBurn The amount of DSC to burn
+     * @notice This function will burn your DSC and redeem Collateral in one transaction
+     */
     function RedeemCollateralForDsc(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountDscToBurn)
         external
     {
@@ -183,14 +182,14 @@ contract DSCEngine is ReentrancyGuard {
         _redeemCollateral(msg.sender, msg.sender, tokenCollateralAddress, amountCollateral);
     }
 
-    /*
-    * @param collateral The erc20 collateral address to liquidate from the user.
-    * @param user The user who has broken the health factor. Their _healtfactor should be below MIN_HEALTH_FACTOR.
-    * @param debtToRecover The amount of DSC you want to burn to improve the user's health factor
-    * @notice You can partially liquidate user
-    * @notice You will get a liquidation bonus for taking the users funds
-    * @notice This function working assumes the protocol will be roughly 200% over collateralized in order for this to work
-    */
+    /**
+     * @param collateralAddress The erc20 collateral address to liquidate from the user.
+     * @param user The user who has broken the health factor. Their _healtfactor should be below MIN_HEALTH_FACTOR.
+     * @param debtToRecover The amount of DSC you want to burn to improve the user's health factor
+     * @notice You can partially liquidate user
+     * @notice You will get a liquidation bonus for taking the users funds
+     * @notice This function working assumes the protocol will be roughly 200% over collateralized in order for this to work
+     */
     function liquidate(address collateralAddress, address user, uint256 debtToRecover)
         public
         moreThanZero(debtToRecover)
@@ -205,7 +204,7 @@ contract DSCEngine is ReentrancyGuard {
         uint256 tokenAmountFromDebtCovered = getTokenAmountFromUsd(collateralAddress, debtToRecover);
         // And give them a 10% bonus
         // So we are giving the liquidator $110 of WETH for 100 DSC
-        // We should implement a feature to liquidate in the event the protocol is insolvent
+        //todo: A feature to liquidate in the event the protocol is insolvent
         // And sweep extra amounts into a treasury
         uint256 bonusCollateral = (tokenAmountFromDebtCovered * LIQUIDATION_BONUS) / LIQUIDATION_PERCISION;
         // Burn DSC equal to debtToCover
@@ -243,58 +242,6 @@ contract DSCEngine is ReentrancyGuard {
      * @param usdAmountInWei The value of tokens in usd you want to retrieve
      *  @notice Users can call this function to get the number of token you can purchase for a given amount.
      */
-
-    function getTokenAmountFromUsd(address token, uint256 usdAmountInWei) public view returns (uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeed[token]);
-        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
-        return (usdAmountInWei * PERCISION) / (uint256(price) * ADDITIONAL_FEED_PERCISION);
-    }
-
-    /**
-     * @param token the token address you want to retrieve its Price Feed.
-     *  @notice This function is used to get the priceFeed of a tokenAddress.
-     */
-    function getTokenPriceFeed(address token) public view returns (int256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeed[token]);
-        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
-        return price;
-    }
-    /**
-     * @param user The address of the user you want to retrieve its account information
-     *  @notice This function is used to get the the account information of a user.
-     */
-
-    function getAccountInformation(address user)
-        external
-        view
-        returns (uint256 totalDSCMinted, uint256 collateralValueInUsd)
-    {
-        return _getAccountInformation(user);
-    }
-
-    /**
-     * @notice A getter function to get the all the token addresses used as collateral in the system.
-     */
-    function getCollateralTokens() external view returns (address[] memory) {
-        return s_collateralTokens;
-    }
-
-    /**
-     * @param user The address of t he user toget collateral Balance
-     *  @param token The token address of the collateral to check balance of.
-     * @notice A getter function to get the collateral balance of a user.
-     */
-    function getCollateralBalanceOfUser(address user, address token) external view returns (uint256) {
-        return s_collateralDeposited[user][token];
-    }
-    /**
-     * @param token The token address to get the current priceFeed
-     * @notice Function to get the price feed of a collateral token
-     */
-
-    function getCollateralTokenPriceFeed(address token) external view returns (address) {
-        return s_priceFeed[token];
-    }
 
     ////////////////////////////////////
     // Internal & Private Functions  ///
@@ -351,19 +298,46 @@ contract DSCEngine is ReentrancyGuard {
         return userHealthFactor;
     }
 
+    /////////////////////////////
+    // Getter Functions      ///
+    ////////////////////////////
+    function getTokenAmountFromUsd(address token, uint256 usdAmountInWei) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeed[token]);
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
+        return (usdAmountInWei * PERCISION) / (uint256(price) * ADDITIONAL_FEED_PERCISION);
+    }
+    /**
+     * @param token the token address you want to retrieve its Price Feed.
+     *  @notice This function is used to get the priceFeed of a tokenAddress.
+     */
+
+    function getTokenPriceFeed(address token) public view returns (int256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeed[token]);
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
+        return price;
+    }
+    /**
+     * @param user The address of the user you want to retrieve its account information
+     *  @notice This function is used to get the the account information of a user.
+     */
+
+    function getAccountInformation(address user)
+        external
+        view
+        returns (uint256 totalDSCMinted, uint256 collateralValueInUsd)
+    {
+        return _getAccountInformation(user);
+    }
     /**
      * @param user the total number of of DSC minted by the user
      *  @notice Internal function to get the healthFactor of user
      */
+
     function _getHealthFactor(address user) internal view returns (uint256) {
         (uint256 totalDSCMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
         uint256 userHealthFactor = _calculateHealthFactor(totalDSCMinted, collateralValueInUsd);
         return userHealthFactor;
     }
-
-    /////////////////////////////
-    // Getter Functions      ///
-    ////////////////////////////
 
     /**
      * @notice This function gets the account information of a user
@@ -405,6 +379,29 @@ contract DSCEngine is ReentrancyGuard {
         // Most USD pairs have 8 decimals, so we will just pretend they all do
         // We want to have everything in terms of WEI, so we add 10 zeros at the end
         return ((uint256(price) * ADDITIONAL_FEED_PERCISION) * amount) / PERCISION;
+    }
+
+    /**
+     * @notice A getter function to get the all the token addresses used as collateral in the system.
+     */
+    function getCollateralTokens() external view returns (address[] memory) {
+        return s_collateralTokens;
+    }
+
+    /**
+     * @param user The address of the user to get its collateral Balance
+     *  @param token The token address of the collateral to check balance of.
+     */
+    function getCollateralBalanceOfUser(address user, address token) external view returns (uint256) {
+        return s_collateralDeposited[user][token];
+    }
+    /**
+     * @param token The token address to get the current priceFeed
+     * @notice Function to get the price feed of a collateral token
+     */
+
+    function getCollateralTokenPriceFeed(address token) external view returns (address) {
+        return s_priceFeed[token];
     }
 
     function getHealthFactor(address user) external view returns (uint256) {
